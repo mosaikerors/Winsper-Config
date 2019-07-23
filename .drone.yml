@@ -1,5 +1,5 @@
 kind: pipline
-name: Winsper-HeanService
+name: Winsper-Config
 
 steps:
 - name: test
@@ -14,114 +14,37 @@ steps:
   - mvn package -Dmaven.test.skip=true
   - echo "test and package config-server completed 🙂🙂🙂"
 
-- name: upload_czn
+- name: upload
   image: appleboy/drone-scp
   settings:
-    host: 47.102.205.224
+    host: 10.0.0.98
     username: root
-    password:
-      from_secret: czn_password
+    key: 
+      from_secret: private_key
     rm: true
-    target: /Winsper/config-server
+    target: /root/Winsper/drone-tmp
     source:
       - target/config-server-0.0.1-SNAPSHOT.jar
       - Dockerfile
 
-- name: deploy_czn
+- name: deploy
   image: appleboy/drone-ssh
   settings:
-    host: 47.102.205.224
+    host: 10.0.0.98
     username: root
-    password:
-      from_secret: czn_password
+    key: 
+      from_secret: private_key
+    command_timeout: 5m
     script:
-      - cd /Winsper/config-server/target
-      - cp ../Dockerfile .
-      - docker build -t winsper-config-server .
-      - docker rm -f winsper-config-server-c
-      - docker run -d --name winsper-config-server-c --expose=7199 -p 7199:7199 -e "EUREKA_INSTANCE_IP-ADDRESS=47.102.205.224" -e "SERVER_PORT=7199" winsper-config-server
-
-- name: upload_yjy
-  image: appleboy/drone-scp
-  settings:
-    host: 47.103.0.246
-    username: root
-    password:
-      from_secret: yjy_password
-    rm: true
-    target: /Winsper/config-server
-    source:
-    - target/config-server-0.0.1-SNAPSHOT.jar
-    - Dockerfile
-
-- name: deploy_yjy
-  image: appleboy/drone-ssh
-  settings:
-    host: 47.103.0.246
-    username: root
-    password:
-      from_secret: yjy_password
-    script:
-    - cd /Winsper/config-server/target
+    - cd /root/Winsper/drone-tmp/target
     - cp ../Dockerfile .
-    - docker build -t winsper-config-server .
-    - docker rm -f winsper-config-server-c
-    - docker run -d --name winsper-config-server-c --expose=7199 -p 7199:7199 -e "EUREKA_INSTANCE_IP-ADDRESS=47.103.0.246" -e "SERVER_PORT=7199" winsper-config-server
-
-- name: upload_xyx
-  image: appleboy/drone-scp
-  settings:
-    host: 101.132.176.33
-    username: root
-    password:
-      from_secret: xyx_password
-    rm: true
-    target: /Winsper/config-server
-    source:
-      - target/config-server-0.0.1-SNAPSHOT.jar
-      - Dockerfile
-
-- name: deploy_xyx
-  image: appleboy/drone-ssh
-  settings:
-    host: 101.132.176.33
-    username: root
-    password:
-      from_secret: xyx_password
-    script:
-      - cd /Winsper/config-server/target
-      - cp ../Dockerfile .
-      - docker build -t winsper-config-server .
-      - docker rm -f winsper-config-server-c
-      - docker run -d --name winsper-config-server-c --expose=7199 -p 7199:7199 -e "EUREKA_INSTANCE_IP-ADDRESS=101.132.176.33" -e "SERVER_PORT=7199" winsper-config-server
-
-- name: upload_tbc
-  image: appleboy/drone-scp
-  settings:
-    host: 47.100.126.180
-    username: root
-    password:
-      from_secret: tbc_password
-    rm: true
-    target: /Winsper/config-server
-    source:
-      - target/config-server-0.0.1-SNAPSHOT.jar
-      - Dockerfile
-
-- name: deploy_tbc
-  image: appleboy/drone-ssh
-  settings:
-    host: 47.100.126.180
-    username: root
-    password:
-      from_secret: tbc_password
-    script:
-      - cd /Winsper/config-server/target
-      - cp ../Dockerfile .
-      - docker build -t winsper-config-server .
-      - docker rm -f winsper-config-server-c
-      - docker run -d --name winsper-config-server-c --expose=7199 -p 7199:7199 -e "EUREKA_INSTANCE_IP-ADDRESS=47.100.126.180" -e "SERVER_PORT=7199" winsper-config-server
-
+    - docker build -t gusabary/winsper-config .
+    - docker login
+    - docker push gusabary/winsper-config
+    - cd /root/Winsper/Winsper
+    - kubectl delete deploy/winsper-config
+    - kubectl apply -f config-deployment.yml
+    
 volumes:
 - name: dependency
   host:
