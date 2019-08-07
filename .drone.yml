@@ -1,51 +1,83 @@
 kind: pipline
-name: Winsper-Config
+name: winsper-config
 
 steps:
-- name: test
-  image: maven
-  volumes:
-  - name: dependency
-    path: /root/.m2
-# - name: configuration
-#   path: /drone/src/back-end/src/main/resources/application.yml
-  commands:
-  - mvn clean
-  - mvn package -Dmaven.test.skip=true
-  - echo "test and package config-server completed 🙂🙂🙂"
+  - name: test
+    image: maven
+    volumes:
+      - name: dependency
+        path: /root/.m2
+    # - name: configuration
+    #   path: /drone/src/back-end/src/main/resources/application.yml
+    commands:
+      - mvn clean
+      - mvn package -Dmaven.test.skip=true
+      - echo "test and package config-service completed 🙂🙂🙂"
 
-- name: upload
-  image: appleboy/drone-scp
-  settings:
-    host: 10.0.0.98
-    username: root
-    key: 
-      from_secret: private_key
-    rm: true
-    target: /root/Winsper/drone-tmp
-    source:
-      - target/config-server-0.0.1-SNAPSHOT.jar
-      - Dockerfile
+  - name: upload_master
+    image: appleboy/drone-scp
+    settings:
+      host: 10.0.0.98
+      username: root
+      key:
+        from_secret: private_key
+      rm: true
+      target: /Winsper/winsper-config
+      source:
+        - target/config-server-0.0.1-SNAPSHOT.jar
+        - Dockerfile
 
-- name: deploy
-  image: appleboy/drone-ssh
-  settings:
-    host: 10.0.0.98
-    username: root
-    key: 
-      from_secret: private_key
-    command_timeout: 5m
-    script:
-    - cd /root/Winsper/drone-tmp/target
-    - cp ../Dockerfile .
-    - docker build -t gusabary/winsper-config .
-    - docker login
-    - docker push gusabary/winsper-config
-    - cd /root/Winsper/Winsper
-    - kubectl delete deploy/winsper-config
-    - kubectl apply -f config-deployment.yml
-    
+  - name: make_image_and_copy
+    image: appleboy/drone-ssh
+    settings:
+      host: 10.0.0.98
+      username: root
+      script:
+        - cd /Winsper/winsper-config/target
+        - cp ../Dockerfile .
+        - docker build -t winsper-config .
+        - docker save winsper-config>winsper-config.tar
+        - scp winsper-config.tar root@10.0.0.106:/root/Winsper/winsper-config
+        - scp winsper-config.tar root@10.0.0.39:/root/Winsper/winsper-config
+        - scp winsper-config.tar root@10.0.0.99:/root/Winsper/winsper-config
+
+  - name: deploy_slave1
+    image: appleboy/drone-ssh
+    settings:
+      host: 10.0.0.106
+      username: root
+      script:
+        - cd /Winsper/winsper-config
+        - docker load -i winsper-config.tar
+        - docker rm -f winsper-config-c
+        - docker run -d --name winsper-config-c --expose=7150 -p 7150:7150 -e "EUREKA_INSTANCE_IP-ADDRESS=10.0.0.106" -e "SERVER_PORT=7150" winsper-config
+
+  - name: deploy_slave2
+    image: appleboy/drone-ssh
+    settings:
+      host: 10.0.0.39
+      username: root
+      script:
+        - cd /Winsper/winsper-config
+        - docker load -i winsper-config.tar
+        - docker rm -f winsper-config-c
+        - docker run -d --name winsper-config-c --expose=7150 -p 7150:7150 -e "EUREKA_INSTANCE_IP-ADDRESS=10.0.0.39" -e "SERVER_PORT=7150" winsper-config
+
+  - name: deploy_slave3
+    image: appleboy/drone-ssh
+    settings:
+      host: 10.0.0.99
+      username: root
+      script:
+        - cd /Winsper/winsper-config
+        - docker load -i winsper-config.tar
+        - docker rm -f winsper-config-c
+        - docker run -d --name winsper-config-c --expose=7150 -p 7150:7150 -e "EUREKA_INSTANCE_IP-ADDRESS=10.0.0.99" -e "SERVER_PORT=7150" winsper-config
+
+
+
+
 volumes:
-- name: dependency
-  host:
-    path: /root/.m2
+  - name: dependency
+    host:
+      path: /root/.m2
